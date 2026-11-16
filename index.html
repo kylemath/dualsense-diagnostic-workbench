@@ -1,0 +1,2455 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DualSense 3D Diagnostic & Calibration Workbench</title>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three/three.module.min.js",
+      "three/addons/": "./vendor/three/addons/"
+    }
+  }
+  </script>
+  <style>
+    :root {
+      --bg-0: #090b10;
+      --bg-1: #10141d;
+      --bg-2: #171c28;
+      --bg-3: #1f2637;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hi: rgba(96, 165, 250, 0.4);
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --dim: #64748b;
+      --accent: #3b82f6;
+      --cyan: #06b6d4;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
+      --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: radial-gradient(circle at 30% 0%, #161f33 0%, var(--bg-0) 75%);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 13.5px;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    @media (max-width: 1050px) {
+      html, body { overflow: auto; }
+    }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* Top Header */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: rgba(16, 20, 29, 0.88);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      background: linear-gradient(135deg, #2563eb, #06b6d4);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 22px rgba(37, 99, 235, 0.45);
+      font-weight: 800;
+      font-size: 15px;
+    }
+    .brand-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .status-pills {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 13px;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .pill strong { color: var(--text); font-family: var(--font-mono); font-weight: 600; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+    .dot.live { background: var(--emerald); box-shadow: 0 0 10px var(--emerald); }
+    .dot.warn { background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 8px 15px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-3);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .btn:hover:not(:disabled) {
+      background: #2a344b;
+      border-color: rgba(255,255,255,0.2);
+    }
+    .btn:disabled { opacity: 0.42; cursor: not-allowed; }
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border-color: rgba(96, 165, 250, 0.45);
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+    }
+    .btn-emerald {
+      background: linear-gradient(135deg, #059669, #047857);
+      border-color: rgba(52, 211, 153, 0.4);
+    }
+    .btn-amber {
+      background: linear-gradient(135deg, #d97706, #b45309);
+      border-color: rgba(251, 191, 36, 0.4);
+    }
+    .btn-rose {
+      background: linear-gradient(135deg, #e11d48, #be123c);
+      border-color: rgba(251, 113, 133, 0.4);
+    }
+    .btn-sm { padding: 6px 11px; font-size: 11.5px; border-radius: 8px; }
+    .btn.active {
+      background: var(--accent);
+      border-color: #60a5fa;
+      color: #fff;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(59, 130, 246, 0.16);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      font-weight: 600;
+    }
+    .badge.ok { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.35); }
+    .badge.warn { background: rgba(245, 158, 11, 0.16); color: #fcd34d; border-color: rgba(245, 158, 11, 0.35); }
+    .badge.err { background: rgba(244, 63, 94, 0.16); color: #fda4af; border-color: rgba(244, 63, 94, 0.35); }
+
+    /* Main Split Layout: Persistent 3D Stage (Left) + Tabbed Workspace (Right) */
+    .workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(390px, 41%) 1fr;
+      gap: 18px;
+      padding: 18px 24px;
+      min-height: 0;
+    }
+    @media (max-width: 1050px) {
+      .workspace {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+    }
+
+    /* Left Persistent 3D Stage Column */
+    .stage-panel {
+      display: flex;
+      flex-direction: column;
+      background: radial-gradient(circle at 50% 42%, #1d273f 0%, #0b0e16 78%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+      min-height: 480px;
+    }
+
+    .stage-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: rgba(10, 12, 18, 0.65);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      gap: 8px;
+      flex-wrap: wrap;
+      z-index: 10;
+    }
+    .btn-group {
+      display: flex;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 3px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    #viewer {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      min-height: 360px;
+    }
+    #controller-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+    #controller-canvas:active { cursor: grabbing; }
+
+    .loader-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: rgba(9, 11, 16, 0.78);
+      z-index: 20;
+    }
+    .loader-overlay[hidden] { display: none; }
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.12);
+      border-top-color: var(--accent);
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Live Mini HUD Bar at bottom of 3D Stage */
+    .stage-hud {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding: 12px 16px;
+      background: rgba(10, 12, 18, 0.82);
+      border-top: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+    }
+    .hud-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 7px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .hud-box span {
+      font-size: 10.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .hud-box strong {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    /* Right Tabbed Feature Area (Vertical Sidebar Tabs + Content Pane) */
+    .tabs-container {
+      display: grid;
+      grid-template-columns: 225px 1fr;
+      background: rgba(16, 20, 29, 0.85);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+      min-height: 0;
+    }
+
+    @media (max-width: 1280px) {
+      .tabs-container {
+        grid-template-columns: 195px 1fr;
+      }
+    }
+
+    .tab-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 14px 12px;
+      background: rgba(10, 12, 18, 0.75);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .tab-nav-header {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--dim);
+      padding: 4px 10px 8px;
+    }
+    .tab-btn {
+      padding: 11px 13px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      line-height: 1.3;
+    }
+    .tab-btn .tab-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .tab-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .tab-btn.active {
+      background: rgba(59, 130, 246, 0.16);
+      border-color: rgba(59, 130, 246, 0.45);
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(59, 130, 246, 0.2);
+    }
+    .tab-btn.active .tab-num {
+      background: var(--accent);
+      border-color: #60a5fa;
+      color: #fff;
+    }
+
+    .tab-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .tab-pane {
+      display: none;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .tab-pane.active {
+      display: flex;
+    }
+
+    /* Cards inside Tab Panes */
+    .panel-card {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 16px 18px;
+    }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .panel-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-desc {
+      font-size: 12.5px;
+      color: var(--muted);
+      line-height: 1.45;
+      margin-bottom: 12px;
+    }
+
+    /* Tab 1: Stick Scopes */
+    .scopes-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 680px) {
+      .scopes-row { grid-template-columns: 1fr; }
+    }
+    .scope-card {
+      background: rgba(10, 12, 18, 0.55);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .scope-canvas {
+      width: 210px;
+      height: 210px;
+      border-radius: 50%;
+      background: #080a0f;
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: inset 0 0 24px rgba(0,0,0,0.8);
+    }
+    .scope-metrics {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+    }
+    .m-pill {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .m-pill small { font-size: 10px; color: var(--muted); font-family: var(--font-sans); }
+    .m-pill strong { color: var(--text); }
+
+    /* Tab 2: 256-Bucket Track Dead-Spot Scanner & Glitch Oscilloscope */
+    .track-scanner-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .track-canvas {
+      width: 100%;
+      height: 110px;
+      background: #080a0f;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: block;
+    }
+    #osc-canvas {
+      width: 100%;
+      height: 165px;
+      background: #080a0f;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: block;
+    }
+    .hysteresis-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .hyst-box {
+      background: rgba(10, 12, 18, 0.55);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .hyst-box span { font-size: 11px; color: var(--muted); }
+    .hyst-box strong { font-family: var(--font-mono); font-size: 14px; color: var(--text); }
+
+    /* Tab 3: NVS Calibration */
+    .finetune-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+    .ft-cell {
+      background: rgba(10, 12, 18, 0.65);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 6px;
+      text-align: center;
+    }
+    .ft-cell small { display: block; color: var(--muted); font-size: 10px; margin-bottom: 3px; }
+    .ft-cell strong { color: #93c5fd; font-size: 13px; }
+
+    .log-box {
+      background: #07090d;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      height: 130px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: #94a3b8;
+    }
+    .log-line { margin-bottom: 3px; }
+    .log-line.ok { color: #6ee7b7; }
+    .log-line.warn { color: #fcd34d; }
+    .log-line.err { color: #fda4af; }
+
+    /* Tab 4: Buttons & Touchpad */
+    .trig-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .trig-meter {
+      background: rgba(10, 12, 18, 0.55);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .trig-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      margin-bottom: 8px;
+    }
+    .progress-track {
+      width: 100%;
+      height: 10px;
+      background: #07090d;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--cyan));
+      transition: width 0.04s linear;
+    }
+    .btn-matrix {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+    .b-chip {
+      background: rgba(10, 12, 18, 0.55);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 10px 6px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      transition: all 0.08s ease;
+      position: relative;
+    }
+    .b-chip.pressed {
+      background: rgba(59, 130, 246, 0.3);
+      border-color: #60a5fa;
+      color: #fff;
+      box-shadow: 0 0 14px rgba(59, 130, 246, 0.45);
+      transform: scale(0.97);
+    }
+    .b-chip.tested::after {
+      content: "✓";
+      position: absolute;
+      top: 4px;
+      right: 6px;
+      font-size: 10px;
+      color: var(--emerald);
+    }
+    #touch-canvas {
+      width: 100%;
+      height: 150px;
+      background: #080a0f;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: block;
+    }
+
+    /* Tab 5: Hardware Info */
+    .kv-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .kv-item {
+      background: rgba(10, 12, 18, 0.55);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 11px 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .kv-item span { font-size: 11.5px; color: var(--muted); }
+    .kv-item strong { font-family: var(--font-mono); font-size: 13px; color: var(--text); }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- Top Header -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">DS5</div>
+      <div>
+        <div class="brand-title">
+          DualSense 3D Diagnostic &amp; Calibration Workbench
+          <span class="badge">WebHID + Three.js</span>
+        </div>
+        <div class="brand-sub">Persistent 3D Controller View + Tabbed Potentiometer Track Scanner, NVS Calibrator &amp; Hardware Suite</div>
+      </div>
+    </div>
+
+    <div class="status-pills">
+      <div class="pill">
+        <span class="dot" id="conn-dot"></span>
+        <span id="conn-label">Disconnected</span>
+      </div>
+      <div class="pill">Rate: <strong id="poll-rate">0 Hz</strong></div>
+      <div class="pill">Battery: <strong id="bat-text">--</strong></div>
+      <div class="pill">NVS: <strong id="nvs-pill-text">--</strong></div>
+      <button class="btn btn-primary" id="btn-connect">Connect DualSense (WebHID)</button>
+    </div>
+  </header>
+
+  <!-- Main 2-Pane Split Workspace -->
+  <main class="workspace">
+
+    <!-- LEFT PANE: Persistent Interactive 3D DualSense Controller + Live Telemetry Bar -->
+    <section class="stage-panel">
+      <div class="stage-toolbar">
+        <div class="btn-group" role="group" aria-label="Camera Presets">
+          <button class="btn btn-sm active" data-cam="front">Front</button>
+          <button class="btn btn-sm" data-cam="angle">Angle</button>
+          <button class="btn btn-sm" data-cam="triggers">Triggers</button>
+          <button class="btn btn-sm" data-cam="back">Back</button>
+          <button class="btn btn-sm" id="btn-gyro-pose">3D Gyro: OFF</button>
+        </div>
+        <div class="btn-group" role="group" aria-label="Shell Finish">
+          <button class="btn btn-sm" data-shell="white">White</button>
+          <button class="btn btn-sm" data-shell="black">Black</button>
+          <button class="btn btn-sm" data-shell="red">Cosmic Red</button>
+        </div>
+      </div>
+
+      <div id="viewer">
+        <canvas id="controller-canvas"></canvas>
+        <div class="loader-overlay" id="loader-overlay">
+          <div class="spinner"></div>
+          <div id="loader-text" style="font-weight:600; color:#cbd5e1;">Loading 3D DualSense Model...</div>
+        </div>
+      </div>
+
+      <!-- Persistent Bottom Live Telemetry Strip -->
+      <div class="stage-hud">
+        <div class="hud-box">
+          <span>Left Stick (LX, LY)</span>
+          <strong id="hud-left">128, 128</strong>
+        </div>
+        <div class="hud-box">
+          <span>Right Stick (RX, RY)</span>
+          <strong id="hud-right">128, 128</strong>
+        </div>
+        <div class="hud-box">
+          <span>Triggers (L2 / R2)</span>
+          <strong id="hud-triggers">0% / 0%</strong>
+        </div>
+        <div class="hud-box">
+          <span>RX Track Glitches</span>
+          <strong id="hud-glitches" style="color:var(--emerald)">0 Spikes</strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANE: Clean Tabbed Feature Panels -->
+    <section class="tabs-container">
+
+      <!-- Vertical Tab Navigation Column -->
+      <nav class="tab-nav" role="tablist">
+        <div class="tab-nav-header">Diagnostic Modules</div>
+        <button class="tab-btn active" data-tab="tab-track">
+          <span class="tab-num">1</span>
+          <span>Track &amp; Skip Scanner</span>
+        </button>
+        <button class="tab-btn" data-tab="tab-sticks">
+          <span class="tab-num">2</span>
+          <span>Stick Scopes &amp; Circularity</span>
+        </button>
+        <button class="tab-btn" data-tab="tab-cal">
+          <span class="tab-num">3</span>
+          <span>NVS Stick Calibration</span>
+        </button>
+        <button class="tab-btn" data-tab="tab-buttons">
+          <span class="tab-num">4</span>
+          <span>Buttons &amp; Touchpad</span>
+        </button>
+        <button class="tab-btn" data-tab="tab-haptics">
+          <span class="tab-num">5</span>
+          <span>Haptics, LEDs &amp; HW Info</span>
+        </button>
+        <button class="tab-btn" data-tab="tab-repair">
+          <span class="tab-num">6</span>
+          <span>Illustrated Repair Guide</span>
+        </button>
+      </nav>
+
+      <!-- Tab Content Area -->
+      <div class="tab-body">
+
+        <!-- =============================================================== -->
+        <!-- TAB 1: POTENTIOMETER TRACK DEAD-SPOT SCANNER & HYSTERESIS       -->
+        <!-- =============================================================== -->
+        <div class="tab-pane active" id="tab-track">
+
+          <!-- 256-Bucket RX Track Coverage & Dead-Spot Heatmap -->
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">
+                Right Stick X (`RX`) 256-Position Carbon Track Scanner
+                <span class="badge warn" id="skip-zone-badge">Sweep RX slowly to scan</span>
+              </div>
+              <button class="btn btn-sm" id="btn-reset-track">Clear Scan Map</button>
+            </div>
+            <div class="panel-desc">
+              <strong>How to find the exact dead/skip spot:</strong> Move the Right Stick <strong>very slowly</strong> from center (`128`) to the Left (`0`) and to the Right (`255`). Every `0..255` ADC value that the wiper successfully reads turns <strong style="color:#10b981">Green</strong>. Any values that the wiper <strong>jumps/skips over</strong> (like `125 → 98`) are highlighted in <strong style="color:#f43f5e">Crimson Red</strong>!
+            </div>
+
+            <div class="track-scanner-wrap">
+              <canvas class="track-canvas" id="track-canvas" width="760" height="140"></canvas>
+            </div>
+
+            <div class="hysteresis-grid">
+              <div class="hyst-box">
+                <span>Return Center from LEFT</span>
+                <strong id="hyst-left">--</strong>
+              </div>
+              <div class="hyst-box">
+                <span>Return Center from RIGHT</span>
+                <strong id="hyst-right">--</strong>
+              </div>
+              <div class="hyst-box">
+                <span>Last Detected Skip Jump</span>
+                <strong id="last-skip-text" style="color:var(--rose)">None</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- 250Hz High-Speed Glitch Oscilloscope -->
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">
+                250Hz Real-Time Wiper Voltage Oscilloscope
+                <span class="badge ok" id="glitch-badge">0 Spikes</span>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button class="btn btn-sm btn-primary" id="btn-15s-test">Run 15s Guided Sweep</button>
+                <button class="btn btn-sm" id="btn-reset-scope">Reset Scope</button>
+              </div>
+            </div>
+            <canvas id="osc-canvas" width="760" height="220"></canvas>
+            <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:12px; color:var(--muted); font-family:var(--font-mono);">
+              <div>
+                <span style="color:#f43f5e; font-weight:700;">■ RX (Right X)</span> &nbsp;
+                <span style="color:#10b981;">■ RY (Right Y)</span> &nbsp;
+                <span style="color:#38bdf8;">■ LX (Left X)</span> &nbsp;
+                <span style="color:#818cf8;">■ LY (Left Y)</span>
+              </div>
+              <span>Max 4ms Step on RX: <strong id="max-rx-step-label" style="color:var(--text)">0</strong> counts</span>
+            </div>
+            <div id="guided-banner" style="display:none; margin-top:10px; padding:10px 12px; border-radius:9px; background:rgba(59,130,246,0.18); border:1px solid rgba(59,130,246,0.4); font-size:12.5px; font-weight:600; color:#bfdbfe;"></div>
+          </div>
+
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 2: 2D STICK SCOPES & OUTER CIRCULARITY                      -->
+        <!-- =============================================================== -->
+        <div class="tab-pane" id="tab-sticks">
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">2D Stick Position, Deadzone Ring (8%) &amp; Outer Circularity</div>
+              <button class="btn btn-sm" id="btn-clear-trails">Clear Trails &amp; Circularity</button>
+            </div>
+            <div class="panel-desc">
+              The dashed amber circle shows a standard 8% game deadzone around `(128, 128)`. Rotate both sticks in full circles to measure outer boundary circularity.
+            </div>
+
+            <div class="scopes-row">
+              <!-- Left Stick Scope -->
+              <div class="scope-card">
+                <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+                  <strong>LEFT STICK (LX / LY)</strong>
+                  <span class="badge ok" id="l-drift-badge">0.0% Offset</span>
+                </div>
+                <canvas class="scope-canvas" id="l-scope" width="320" height="320"></canvas>
+                <div class="scope-metrics">
+                  <div class="m-pill"><small>Raw (0..255)</small><strong id="l-raw-pair">128, 128</strong></div>
+                  <div class="m-pill"><small>Normalized</small><strong id="l-norm-pair">0.00, 0.00</strong></div>
+                  <div class="m-pill"><small>Circularity Err</small><strong id="l-circ">--</strong></div>
+                </div>
+              </div>
+
+              <!-- Right Stick Scope -->
+              <div class="scope-card">
+                <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+                  <strong>RIGHT STICK (RX / RY)</strong>
+                  <span class="badge ok" id="r-drift-badge">0.0% Offset</span>
+                </div>
+                <canvas class="scope-canvas" id="r-scope" width="320" height="320"></canvas>
+                <div class="scope-metrics">
+                  <div class="m-pill"><small>Raw (0..255)</small><strong id="r-raw-pair">128, 128</strong></div>
+                  <div class="m-pill"><small>Normalized</small><strong id="r-norm-pair">0.00, 0.00</strong></div>
+                  <div class="m-pill"><small>Circularity Err</small><strong id="r-circ">--</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 3: SONY NVS HARDWARE STICK CALIBRATION                      -->
+        <!-- =============================================================== -->
+        <div class="tab-pane" id="tab-cal">
+
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">1. NVS Flash Storage Mode (`0x80`)</div>
+              <span class="badge" id="cal-mode-badge">Permanent NVS Flash</span>
+            </div>
+            <div class="panel-desc">
+              When <strong>Save Permanently to Controller NVS Flash</strong> is checked, the app unlocks the DualSense non-volatile memory (`0x80 [3,2,101,50,64,12]`) before writing calibration and locks it (`0x80 [3,1]`) immediately after so your calibration persists on PS5.
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+              <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer;">
+                <input type="checkbox" id="chk-permanent" checked>
+                Save Permanently to Controller NVS Flash
+              </label>
+              <div style="display:flex; gap:8px;">
+                <button class="btn btn-sm" id="btn-nvs-query" disabled>Query NVS</button>
+                <button class="btn btn-sm" id="btn-nvs-unlock" disabled>Unlock NVS</button>
+                <button class="btn btn-sm" id="btn-nvs-lock" disabled>Lock NVS</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">2. Stick Center Calibration (`0x82 [1,1,1] → [3,1,1] → [2,1,1]`)</div>
+              <span class="badge ok">Zero Resting Drift</span>
+            </div>
+            <div class="panel-desc">
+              Take your hands completely off the controller so both sticks sit at their natural resting point, then click below to lock the current physical voltage as exact center `(128, 128)`.
+            </div>
+            <button class="btn btn-emerald" id="btn-cal-center" disabled style="width:100%; padding:11px;">
+              Calibrate Stick Centers Now (Hands Off Sticks!)
+            </button>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">3. Full Stick Outer Range Calibration (`0x82 [1,1,2] → [2,1,2]`)</div>
+              <span class="badge">Min / Max Endpoints</span>
+            </div>
+            <div class="panel-desc">
+              Click <strong>Start Range Sampling</strong>, slowly rotate both Left and Right sticks firmly around their full outer circular rim 3–4 times, let them return to center, and click <strong>Save &amp; Finish Range</strong>.
+            </div>
+            <div style="display:flex; gap:10px;">
+              <button class="btn btn-amber" id="btn-range-start" disabled style="flex:1; padding:10px;">Start Range Sampling</button>
+              <button class="btn btn-emerald" id="btn-range-end" disabled style="flex:1; padding:10px;">Save &amp; Finish Range</button>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">12-Word Factory Finetune NVS Registers (`0x80 [12,2]`)</div>
+              <button class="btn btn-sm" id="btn-read-finetune" disabled>Read Registers</button>
+            </div>
+            <div class="finetune-grid" id="finetune-grid">
+              <div class="ft-cell"><small>LX Min</small><strong>--</strong></div>
+              <div class="ft-cell"><small>LY Min</small><strong>--</strong></div>
+              <div class="ft-cell"><small>RX Min</small><strong>--</strong></div>
+              <div class="ft-cell"><small>RY Min</small><strong>--</strong></div>
+              <div class="ft-cell"><small>LX Max</small><strong>--</strong></div>
+              <div class="ft-cell"><small>LY Max</small><strong>--</strong></div>
+              <div class="ft-cell"><small>RX Max</small><strong>--</strong></div>
+              <div class="ft-cell"><small>RY Max</small><strong>--</strong></div>
+              <div class="ft-cell"><small>LX Cen</small><strong>--</strong></div>
+              <div class="ft-cell"><small>LY Cen</small><strong>--</strong></div>
+              <div class="ft-cell"><small>RX Cen</small><strong>--</strong></div>
+              <div class="ft-cell"><small>RY Cen</small><strong>--</strong></div>
+            </div>
+            <div class="log-box" id="cal-log" style="margin-top:12px;">
+              <div class="log-line">Ready. Connect DualSense via WebHID in the top bar to calibrate or read NVS registers.</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 4: BUTTONS, TRIGGERS & CAPACITIVE TOUCHPAD                  -->
+        <!-- =============================================================== -->
+        <div class="tab-pane" id="tab-buttons">
+
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">Analog Triggers (`L2` / `R2`)</div>
+            </div>
+            <div class="trig-row">
+              <div class="trig-meter">
+                <div class="trig-head"><span>L2 Trigger</span><strong id="l2-val">0 / 255 (0%)</strong></div>
+                <div class="progress-track"><div class="progress-fill" id="l2-bar"></div></div>
+              </div>
+              <div class="trig-meter">
+                <div class="trig-head"><span>R2 Trigger</span><strong id="r2-val">0 / 255 (0%)</strong></div>
+                <div class="progress-track"><div class="progress-fill" id="r2-bar"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">Digital Button Matrix (19 Buttons)</div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <span class="badge" id="btn-coverage">0 / 19 Tested</span>
+                <button class="btn btn-sm" id="btn-reset-buttons">Reset Checkmarks</button>
+              </div>
+            </div>
+            <div class="btn-matrix">
+              <div class="b-chip" data-btn="cross">Cross (✕)</div>
+              <div class="b-chip" data-btn="circle">Circle (○)</div>
+              <div class="b-chip" data-btn="square">Square (□)</div>
+              <div class="b-chip" data-btn="triangle">Triangle (△)</div>
+              <div class="b-chip" data-btn="l1">L1</div>
+              <div class="b-chip" data-btn="r1">R1</div>
+              <div class="b-chip" data-btn="l2">L2 Click</div>
+              <div class="b-chip" data-btn="r2">R2 Click</div>
+              <div class="b-chip" data-btn="up">D-Up</div>
+              <div class="b-chip" data-btn="down">D-Down</div>
+              <div class="b-chip" data-btn="left">D-Left</div>
+              <div class="b-chip" data-btn="right">D-Right</div>
+              <div class="b-chip" data-btn="l3">L3 (Left)</div>
+              <div class="b-chip" data-btn="r3">R3 (Right)</div>
+              <div class="b-chip" data-btn="create">Create</div>
+              <div class="b-chip" data-btn="options">Options</div>
+              <div class="b-chip" data-btn="ps">PS Button</div>
+              <div class="b-chip" data-btn="touchpad">Touch Click</div>
+              <div class="b-chip" data-btn="mute">Mute Button</div>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">2-Point Capacitive Touchpad (`1920 × 1080`)</div>
+              <span class="badge" id="touch-coords">Inactive</span>
+            </div>
+            <canvas id="touch-canvas" width="640" height="260"></canvas>
+          </div>
+
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 5: ADAPTIVE TRIGGERS, HAPTICS, LEDS & HARDWARE TELEMETRY    -->
+        <!-- =============================================================== -->
+        <div class="tab-pane" id="tab-haptics">
+
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">L2 &amp; R2 Adaptive Trigger Servo Tester (`0x02`)</div>
+              <button class="btn btn-sm btn-rose" id="btn-stop-outputs" disabled>Release All</button>
+            </div>
+            <div class="panel-desc">
+              Test the internal L2/R2 stepper motors and gears with Sony's hardware force-feedback modes.
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn trig-preset" data-preset="off" disabled>Off (Normal)</button>
+              <button class="btn trig-preset" data-preset="pistol" disabled>Pistol Break</button>
+              <button class="btn trig-preset" data-preset="shotgun" disabled>Heavy Shotgun</button>
+              <button class="btn trig-preset" data-preset="smg" disabled>SMG Vibration</button>
+              <button class="btn trig-preset" data-preset="resistance" disabled>Bow Resistance</button>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">Haptic Rumble &amp; Touchpad RGB Lightbar</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+              <button class="btn btn-primary" id="btn-rumble-pulse" disabled>Fire 1s Dual Haptic Rumble Pulse</button>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="color:var(--muted); font-size:12px;">Lightbar Color:</span>
+                <input type="color" id="light-picker" value="#0046ff" style="width:36px; height:30px; border:1px solid var(--border); border-radius:6px; background:transparent; cursor:pointer;">
+                <button class="btn btn-sm" data-led="#0046ff" disabled>PS Blue</button>
+                <button class="btn btn-sm" data-led="#10b981" disabled>Emerald</button>
+                <button class="btn btn-sm" data-led="#f43f5e" disabled>Crimson</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">Controller Hardware, Firmware &amp; IMU Registers (`0x09` / `0x20`)</div>
+              <button class="btn btn-sm" id="btn-refresh-hw" disabled>Refresh Registers</button>
+            </div>
+            <div class="kv-grid">
+              <div class="kv-item"><span>Board Revision</span><strong id="hw-board">--</strong></div>
+              <div class="kv-item"><span>Firmware Build Date</span><strong id="hw-date">--</strong></div>
+              <div class="kv-item"><span>Main Firmware Version</span><strong id="hw-fw">--</strong></div>
+              <div class="kv-item"><span>Controller Bluetooth MAC</span><strong id="hw-mac">--</strong></div>
+              <div class="kv-item"><span>Paired PS5 Host MAC</span><strong id="hw-host-mac">--</strong></div>
+              <div class="kv-item"><span>IMU Gyro / Accelerometer</span><strong id="hw-imu">--</strong></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 6: ILLUSTRATED POTENTIOMETER CLEANING & REPAIR GUIDE        -->
+        <!-- =============================================================== -->
+        <div class="tab-pane" id="tab-repair">
+
+          <!-- Macro Close-Up Photo of the Wiper Disc, Notch & Carbon Track -->
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">Macro Close-Up: The Wiper Springs, Alignment Notch &amp; `88..155` Carbon Track</div>
+              <span class="badge err">Crucial Inspection Step</span>
+            </div>
+            <div class="panel-desc">
+              Once you unclip the green `RX` door, here is an actual macro close-up of the three internal pieces side-by-side:
+              <br>&bull; <strong>1 (Blue Circle):</strong> The white vertical D-shaft post on the joystick gimbal.
+              <br>&bull; <strong>2 (Gold &amp; Blue):</strong> The removable white wiper disc. The <strong>Gold oval</strong> shows the ultra-fine twin brass wiper springs that accumulate black oxidized carbon gunk; the <strong>Blue rectangle</strong> shows the keyed notch that must slide vertically onto the gimbal post.
+              <br>&bull; <strong>3 (Red Oval):</strong> The `12 o'clock` top center of the black carbon horseshoe (`88..155`), where the wiper rests 95% of the time. Scrub this exact arch with a 90%+ IPA Q-tip!
+            </div>
+            <img src="./guide/annotated_pot_pieces.png" alt="Annotated macro close-up of DualSense potentiometer wiper, notch, and carbon track" style="width:100%; border-radius:10px; border:1px solid var(--border); margin-bottom:12px;">
+            <div style="display:grid; grid-template-columns: 1fr 1.35fr; gap:12px; align-items:center;">
+              <img src="./guide/pot_dualsense36.jpg" alt="Opened green potentiometer door showing wiper on gimbal and carbon ring inside door" style="width:100%; border-radius:10px; border:1px solid var(--border);">
+              <div style="background:rgba(10,12,18,0.65); border:1px solid var(--border); border-radius:10px; padding:14px; font-size:12.5px; line-height:1.55; color:var(--muted);">
+                <strong style="color:var(--text); font-size:13.5px; display:block; margin-bottom:6px;">What to Look For With the Door Hinged Open (Left Photo):</strong>
+                1. <strong>Notice how the white wiper disc stays on the metal gimbal post</strong> when you first hinge the green door open.<br>
+                2. <strong>Check the top arch of the black ring inside the green door:</strong> Wipe it firmly with an alcohol-soaked Q-tip. If a black streak comes off onto the Q-tip and the track underneath looks uniformly matte black, it's cleanable!<br>
+                3. <strong>Check for bare white scratches:</strong> If the black carbon coating at `12 o'clock` is scraped down to bare white plastic, the resistive film is worn through and you can swap the sensor/stick.<br>
+                4. <strong>Re-tension the brass springs:</strong> Gently lift the top curved brass wiper fingers outward by `~0.2mm` with tweezers so they press firmly against the cleaned carbon track, align the vertical notch onto the white post, and click the green door shut!
+              </div>
+            </div>
+          </div>
+
+          <!-- Vector Anatomy Diagram of the Alps RKJXV Potentiometer & 88..155 Wear Zone -->
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">Anatomy of the Right Stick `RX` Potentiometer &amp; the `88..155` Skip Zone</div>
+              <span class="badge warn">Zero-Solder Serviceable</span>
+            </div>
+            <div class="panel-desc">
+              Each thumbstick has two clip-on green/teal <strong>Alps RKJXV</strong> potentiometers: the side sensor controls <strong>Y-Axis (`RY`)</strong>, and the bottom/front sensor controls <strong>X-Axis (`RX`)</strong>. Inside `RX`, a removable white rotor disc carries twin brass wiper fingers across a black horseshoe carbon track.
+            </div>
+            <svg viewBox="0 0 760 230" style="width:100%; height:auto; background:#080a0f; border:1px solid var(--border); border-radius:10px; padding:10px;">
+              <!-- Left Panel: Stick Module Top-Down -->
+              <rect x="20" y="25" width="160" height="160" rx="14" fill="#171c28" stroke="#475569" stroke-width="2"/>
+              <circle cx="100" cy="105" r="46" fill="#0f131c" stroke="#64748b" stroke-width="2"/>
+              <circle cx="100" cy="105" r="16" fill="#334155"/>
+              <!-- RY Sensor (Right side) -->
+              <rect x="180" y="50" width="22" height="110" rx="4" fill="#0d9488" stroke="#2dd4bf" stroke-width="1.5"/>
+              <text x="210" y="108" fill="#94a3b8" font-size="11" font-family="sans-serif">RY Sensor (Healthy)</text>
+              <!-- RX Sensor (Bottom side - TARGET) -->
+              <rect x="45" y="185" width="110" height="24" rx="4" fill="#e11d48" stroke="#fda4af" stroke-width="2"/>
+              <text x="100" y="201" fill="#ffffff" font-size="11" font-weight="bold" text-anchor="middle" font-family="sans-serif">RX Sensor (Unclip Here!)</text>
+              <text x="100" y="17" fill="#cbd5e1" font-size="12" font-weight="bold" text-anchor="middle" font-family="sans-serif">1. Right Thumbstick Module</text>
+
+              <!-- Center Panel: Inside the Black Horseshoe Carbon Track -->
+              <text x="415" y="17" fill="#cbd5e1" font-size="12" font-weight="bold" text-anchor="middle" font-family="sans-serif">2. Inside RX Housing: Carbon Track (0..255)</text>
+              <circle cx="415" cy="120" r="76" fill="#111520" stroke="#334155" stroke-width="2"/>
+              <!-- Full Carbon Horseshoe Arc (Green healthy outer ends) -->
+              <path d="M 358 165 A 72 72 0 1 1 472 165" fill="none" stroke="#10b981" stroke-width="16" stroke-linecap="round"/>
+              <!-- Center 88..155 Wear Zone at 12 o'clock (Amber/Red) -->
+              <path d="M 382 56 A 72 72 0 0 1 448 56" fill="none" stroke="#f43f5e" stroke-width="18"/>
+              <text x="415" y="38" fill="#fda4af" font-size="11" font-weight="bold" text-anchor="middle" font-family="monospace">88..155 Wear/Oxide Zone</text>
+              <text x="335" y="185" fill="#10b981" font-size="10" font-family="monospace">0 (Left)</text>
+              <text x="462" y="185" fill="#10b981" font-size="10" font-family="monospace">255 (Right)</text>
+              <!-- Center Collector Ring -->
+              <circle cx="415" cy="120" r="26" fill="none" stroke="#cbd5e1" stroke-width="6"/>
+
+              <!-- Right Panel: White Wiper Rotor Disc -->
+              <text x="645" y="17" fill="#cbd5e1" font-size="12" font-weight="bold" text-anchor="middle" font-family="sans-serif">3. Removable White Wiper Disc</text>
+              <circle cx="645" cy="115" r="58" fill="#e2e8f0" stroke="#94a3b8" stroke-width="2"/>
+              <rect x="633" y="95" width="24" height="40" rx="4" fill="#0f172a"/>
+              <!-- Brass Wiper Fingers -->
+              <path d="M 615 72 Q 645 55 675 72" fill="none" stroke="#f59e0b" stroke-width="5" stroke-linecap="round"/>
+              <path d="M 620 80 Q 645 65 670 80" fill="none" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"/>
+              <text x="645" y="192" fill="#fcd34d" font-size="11" font-weight="bold" text-anchor="middle" font-family="sans-serif">Swab with IPA &amp; lift brass</text>
+              <text x="645" y="207" fill="#fcd34d" font-size="11" font-weight="bold" text-anchor="middle" font-family="sans-serif">fingers outward ~0.2mm</text>
+            </svg>
+          </div>
+
+          <!-- Step-by-Step Photo Guide from iFixit -->
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title">Step-by-Step Illustrated Disassembly &amp; Potentiometer Opening</div>
+              <span class="badge">Photos: iFixit (CC BY-NC-SA)</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:16px;">
+              <div>
+                <p class="panel-desc"><strong>Step A (Unclip Front Black Trim &amp; L1/R1 Bumpers):</strong> Pry the black trim from the bottom handle tips upward, then pop off L1 &amp; R1 to access the 4 shell screws (2 under L1/R1, 2 at bottom of handles).</p>
+                <img src="./guide/ifixit_page_5.png" alt="Remove middle trim and L1" style="width:100%; border-radius:10px; border:1px solid var(--border);">
+              </div>
+              <div>
+                <p class="panel-desc"><strong>Step B (Remove 4 Screws, Unplug Battery &amp; Flip Board):</strong> Remove the 4 outer screws, unclip the rear shell, unplug the battery (pull the white plug, not the wires), remove the 1 battery tray screw, and flip the board to pull off the right thumbstick cap.</p>
+                <img src="./guide/ifixit_page_17.png" alt="Pull off joystick caps" style="width:100%; border-radius:10px; border:1px solid var(--border);">
+              </div>
+              <div>
+                <p class="panel-desc"><strong>Step C (How to Open the Green `RX` Door WITHOUT Desoldering!):</strong> The 3 metal legs at the bottom of the green potentiometer are made of thin, bendable sheet metal that acts like a <strong>bottom hinge</strong> while still soldered to the motherboard! Slide the tip of your tweezers into the top seam between the metal joystick cage and the green housing, pop the two top plastic latches loose, and tilt the green housing outward ~30° (just enough to pull the white wiper disc out with tweezers and slide an IPA Q-tip inside). Do not bend it past 45° so the legs don't fatigue—when done, push it right back against the cage until both top latches click shut!</p>
+                <img src="./guide/annotated_green_door_no_solder.png" alt="How to unclip and hinge open the green potentiometer while still soldered" style="width:100%; border-radius:10px; border:1px solid var(--border); margin-bottom:10px;">
+                <img src="./guide/ifixit_page_20.png" alt="Remove white wiper mechanism" style="width:100%; border-radius:10px; border:1px solid var(--border);">
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+</div>
+
+<script type="module">
+  import * as THREE from 'three';
+  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+  import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+  import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
+
+  // =========================================================================
+  // 0. TAB NAVIGATION
+  // =========================================================================
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  const logEl = document.getElementById('cal-log');
+  function log(msg, type = '') {
+    const div = document.createElement('div');
+    div.className = 'log-line ' + type;
+    const t = new Date().toLocaleTimeString([], { hour12: false });
+    div.textContent = `[${t}] ${msg}`;
+    logEl.appendChild(div);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const hex2 = n => n.toString(16).padStart(2, '0');
+  const hex8 = n => '0x' + (n >>> 0).toString(16).padStart(8, '0');
+
+  // =========================================================================
+  // 1. PERSISTENT 3D DUALSENSE CONTROLLER STAGE (THREE.JS)
+  // =========================================================================
+  class DualSense3DStage {
+    constructor(canvas) {
+      this.canvas = canvas;
+      this.controls = new Map();
+      this.shellMaterials = [];
+      this.buttonMaterials = [];
+      this.symbolMaterials = [];
+      this.lightMaterials = [];
+      this.touchMarkers = [];
+      this.touchSurfaces = [];
+      this.pose = { x: 0.14, y: -0.22, z: -0.02 };
+      this.zoom = 1.05;
+      this.gyroPoseEnabled = false;
+      this.ready = false;
+
+      this.state = {
+        lx: 0, ly: 0, rx: 0, ry: 0,
+        l2: 0, r2: 0,
+        buttons: {},
+        touches: [],
+        imuQuat: new THREE.Quaternion()
+      };
+
+      this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this.renderer.toneMappingExposure = 0.92;
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.VSMShadowMap;
+
+      this.scene = new THREE.Scene();
+      this.camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
+      this.camera.position.set(0, 0, 8.8);
+
+      this.model = new THREE.Group();
+      this.scene.add(this.model);
+
+      this.scene.add(new THREE.HemisphereLight(0xf1f4ff, 0x282c3a, 0.7));
+      const key = new THREE.DirectionalLight(0xfff9f0, 2.3);
+      key.position.set(-3, 5, 7);
+      key.castShadow = true;
+      key.shadow.mapSize.set(1024, 1024);
+      this.scene.add(key);
+
+      const fill = new THREE.DirectionalLight(0xd7e1ff, 0.85);
+      fill.position.set(5, 1, 4);
+      this.scene.add(fill);
+
+      const rim = new THREE.DirectionalLight(0x60a5fa, 2.0);
+      rim.position.set(1, 4, -4);
+      this.scene.add(rim);
+
+      const env = new RoomEnvironment();
+      const pmrem = new THREE.PMREMGenerator(this.renderer);
+      this.envMap = pmrem.fromScene(env, 0.035);
+      this.scene.environment = this.envMap.texture;
+      this.scene.environmentIntensity = 0.65;
+      env.dispose();
+      pmrem.dispose();
+
+      this.touchRaycaster = new THREE.Raycaster();
+      this.setupPointerOrbit();
+
+      new ResizeObserver(() => this.resize()).observe(canvas.parentElement);
+      this.resize();
+      this.prevTime = 0;
+      requestAnimationFrame(t => this.animate(t));
+    }
+
+    setupPointerOrbit() {
+      let dragging = false, lastX = 0, lastY = 0;
+      this.canvas.addEventListener('pointerdown', e => {
+        dragging = true; lastX = e.clientX; lastY = e.clientY;
+        this.canvas.setPointerCapture(e.pointerId);
+      });
+      this.canvas.addEventListener('pointermove', e => {
+        if (!dragging) return;
+        const dx = e.clientX - lastX, dy = e.clientY - lastY;
+        lastX = e.clientX; lastY = e.clientY;
+        this.pose.y += dx * 0.0075;
+        this.pose.x = Math.max(-1.3, Math.min(1.3, this.pose.x + dy * 0.0075));
+      });
+      const stop = () => { dragging = false; };
+      this.canvas.addEventListener('pointerup', stop);
+      this.canvas.addEventListener('pointercancel', stop);
+      this.canvas.addEventListener('wheel', e => {
+        e.preventDefault();
+        this.zoom = Math.max(0.65, Math.min(1.85, this.zoom - e.deltaY * 0.001));
+        this.camera.zoom = this.zoom;
+        this.camera.updateProjectionMatrix();
+      }, { passive: false });
+    }
+
+    async loadModel(url, onProgress) {
+      const loader = new GLTFLoader();
+      const gltf = await loader.loadAsync(url, e => {
+        if (e.total) onProgress?.(Math.round((e.loaded / e.total) * 100));
+      });
+      gltf.scene.updateMatrixWorld(true);
+      const meshes = [];
+      gltf.scene.traverse(obj => { if (obj.isMesh) meshes.push(obj); });
+
+      for (const object of meshes) {
+        const geometry = object.geometry.clone().applyMatrix4(object.matrixWorld);
+        let material = object.material.clone();
+        if (material.name === 'Material.002') {
+          material = new THREE.MeshPhysicalMaterial({
+            name: 'Material.002', color: '#d0d4de', roughness: 0.23, metalness: 0, clearcoat: 0.8, clearcoatRoughness: 0.12
+          });
+        }
+        const darkDetail = /^(ps-mount|mute-mount|white-shell-detail)/.test(object.name);
+        if (['front_body', 'VRayMtl55'].includes(material.name) && !darkDetail) {
+          material.metalness = 0.015;
+          material.roughness = material.name === 'front_body' ? 0.43 : 0.55;
+          material.color.set('#e9eaf0');
+          this.shellMaterials.push(material);
+        }
+        if (darkDetail) { material.color.set('#16171c'); material.roughness = 0.55; material.metalness = 0; }
+        if (['Material.002', 'Material.009', 'Material.007'].includes(material.name)) this.buttonMaterials.push(material);
+        if (material.name === 'VRayMtl33') { material.metalness = 0; material.roughness = 0.78; material.color.set('#24252b'); }
+        if (material.name === 'front_body.002') { material.metalness = 0; material.roughness = 0.7; material.color.set('#191a20'); }
+        if (material.name === 'front_body.001') { material.metalness = 0; material.roughness = 0.46; material.color.set('#15161b'); }
+        if (object.userData.control === 'ps') { material.color.set('#141519'); material.metalness = 0.15; material.roughness = 0.3; }
+        if (material.name === 'VRayMtl37') { material.metalness = 0; material.roughness = 0.48; material.color.set('#202127'); }
+        if (material.name === 'Material.008') {
+          material.color.set('#0031c9');
+          material.emissive.set('#0046ff');
+          material.emissiveIntensity = 0.85;
+          material.toneMapped = false;
+          this.lightMaterials.push(material);
+        }
+        if (material.name === 'Material.010') {
+          material.color.set('#17191f');
+          material.emissive.set('#000000');
+          material.emissiveIntensity = 0;
+        }
+        if (material.transparent) {
+          material.depthWrite = false;
+          material.polygonOffset = true;
+          material.polygonOffsetFactor = -1;
+        }
+
+        material.userData = {
+          ...material.userData,
+          restColor: material.color ? material.color.clone() : new THREE.Color(0xffffff),
+          restEmissive: material.emissive ? material.emissive.clone() : new THREE.Color(0x000000)
+        };
+
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.name = object.name;
+        mesh.userData = { ...object.userData };
+        mesh.castShadow = !material.transparent;
+        mesh.receiveShadow = true;
+
+        const id = object.userData.control;
+        if (id && id !== 'lights') {
+          if (!this.controls.has(id)) {
+            const group = new THREE.Group();
+            group.name = id;
+            group.userData.control = id;
+            this.controls.set(id, group);
+            this.model.add(group);
+          }
+          this.controls.get(id).add(mesh);
+        } else {
+          this.model.add(mesh);
+        }
+      }
+
+      for (const [id, group] of this.controls) {
+        const bounds = new THREE.Box3().setFromObject(group);
+        const pivot = bounds.getCenter(new THREE.Vector3());
+        if (id.endsWith('-stick')) pivot.z = 0.74;
+        if (['l2', 'r2'].includes(id)) {
+          pivot.y = bounds.max.y - 0.10;
+          pivot.z = bounds.max.z - 0.10;
+        }
+        for (const child of group.children) child.geometry.translate(-pivot.x, -pivot.y, -pivot.z);
+        group.position.copy(pivot);
+        group.userData.rest = pivot.clone();
+        if (id === 'touchpad') group.userData.touchBounds = bounds.clone().translate(pivot.clone().negate());
+      }
+
+      for (const id of ['triangle', 'circle', 'cross', 'square', 'up', 'down', 'left', 'right']) {
+        this.addSymbol(id);
+      }
+
+      const touchpad = this.controls.get('touchpad');
+      if (touchpad) {
+        this.touchSurfaces = [...touchpad.children];
+        for (let i = 0; i < 2; i++) {
+          const marker = new THREE.Mesh(
+            new THREE.RingGeometry(0.06, 0.09, 36),
+            new THREE.MeshBasicMaterial({ color: '#38bdf8', transparent: true, opacity: 0.95, toneMapped: false, side: THREE.DoubleSide })
+          );
+          marker.visible = false;
+          touchpad.add(marker);
+          this.touchMarkers.push(marker);
+        }
+      }
+
+      this.model.rotation.set(this.pose.x, this.pose.y, this.pose.z);
+      this.ready = true;
+      this.resize();
+    }
+
+    addSymbol(id) {
+      const group = this.controls.get(id);
+      if (!group) return;
+      const cap = group.children.find(m => m.material.name === 'Material.002');
+      if (!cap) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      ctx.strokeStyle = '#ffffff';
+      ctx.fillStyle = '#ffffff';
+      ctx.lineWidth = 20;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      if (id === 'triangle') { ctx.moveTo(128, 35); ctx.lineTo(230, 213); ctx.lineTo(26, 213); ctx.closePath(); ctx.stroke(); }
+      if (id === 'circle') { ctx.arc(128, 128, 92, 0, Math.PI * 2); ctx.stroke(); }
+      if (id === 'square') { ctx.strokeRect(43, 43, 170, 170); }
+      if (id === 'cross') { ctx.moveTo(48, 48); ctx.lineTo(208, 208); ctx.moveTo(208, 48); ctx.lineTo(48, 208); ctx.stroke(); }
+      const arrow = ['up', 'down', 'left', 'right'].includes(id);
+      if (arrow) {
+        ctx.translate(128, 128);
+        ctx.rotate({ up: 0, right: Math.PI / 2, down: Math.PI, left: -Math.PI / 2 }[id]);
+        ctx.moveTo(0, -62); ctx.lineTo(65, 40); ctx.lineTo(-65, 40); ctx.closePath(); ctx.fill();
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.anisotropy = 4;
+      const mat = new THREE.MeshStandardMaterial({
+        color: '#7c8597', map: tex, transparent: true, depthWrite: false, roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -4
+      });
+      mat.userData = { restColor: mat.color.clone(), restEmissive: new THREE.Color(0x000000) };
+      this.symbolMaterials.push(mat);
+
+      cap.updateWorldMatrix(true, false);
+      cap.geometry.computeBoundingBox();
+      const bounds = cap.geometry.boundingBox;
+      const center = bounds.getCenter(new THREE.Vector3());
+      center.z = bounds.max.z;
+      if (arrow) {
+        center.x += { left: -0.045, right: 0.045, up: 0, down: 0 }[id];
+        center.y += { up: 0.045, down: -0.045, left: 0, right: 0 }[id];
+      }
+      cap.localToWorld(center);
+      const size = arrow ? 0.11 : 0.235;
+      const orient = new THREE.Euler().setFromQuaternion(cap.getWorldQuaternion(new THREE.Quaternion()));
+      const decal = new THREE.Mesh(new DecalGeometry(cap, center, orient, new THREE.Vector3(size, size, 0.3)), mat);
+      decal.geometry.applyMatrix4(group.matrixWorld.clone().invert());
+      decal.name = id + '-symbol';
+      group.add(decal);
+    }
+
+    setView(view) {
+      const poses = {
+        front: { x: 0.04, y: 0, z: 0 },
+        angle: { x: 0.22, y: -0.48, z: -0.04 },
+        triggers: { x: 0.78, y: Math.PI, z: 0 },
+        back: { x: 0.08, y: Math.PI, z: 0 }
+      };
+      if (poses[view]) this.pose = { ...poses[view] };
+    }
+
+    setShellFinish(finish) {
+      const palettes = {
+        white: { shell: '#e9eaf0', button: '#d0d4de', symbol: '#7c8597' },
+        black: { shell: '#262830', button: '#2f323d', symbol: '#969dad' },
+        red: { shell: '#9e2a47', button: '#4e2436', symbol: '#d499b0' }
+      };
+      const p = palettes[finish] || palettes.white;
+      for (const m of this.shellMaterials) { m.color.set(p.shell); m.userData.restColor.set(p.shell); }
+      for (const m of this.buttonMaterials) { m.color.set(p.button); m.userData.restColor.set(p.button); }
+      for (const m of this.symbolMaterials) { m.color.set(p.symbol); m.userData.restColor.set(p.symbol); }
+    }
+
+    setLightbarColor(hex) {
+      for (const m of this.lightMaterials) {
+        m.emissive.set(hex);
+        m.color.copy(m.emissive).multiplyScalar(0.55);
+      }
+    }
+
+    resize() {
+      const rect = this.canvas.parentElement.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      this.renderer.setSize(rect.width, rect.height, false);
+      this.camera.aspect = rect.width / rect.height;
+      const vSpace = Math.max(3.65, 5.75 / this.camera.aspect);
+      this.camera.position.z = vSpace / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) + 0.75;
+      this.camera.zoom = this.zoom;
+      this.camera.updateProjectionMatrix();
+    }
+
+    renderTouches() {
+      const group = this.controls.get('touchpad');
+      if (!group) return;
+      const bounds = group.userData.touchBounds;
+      group.updateWorldMatrix(true, true);
+      this.touchMarkers.forEach((marker, idx) => {
+        const pt = this.state.touches[idx];
+        if (!pt || !pt.active) { marker.visible = false; return; }
+        const origin = new THREE.Vector3(
+          THREE.MathUtils.lerp(bounds.min.x + 0.09, bounds.max.x - 0.09, pt.x),
+          THREE.MathUtils.lerp(bounds.max.y - 0.09, bounds.min.y + 0.09, pt.y),
+          bounds.max.z + 1
+        );
+        const dir = new THREE.Vector3(0, 0, -1).transformDirection(group.matrixWorld);
+        this.touchRaycaster.set(group.localToWorld(origin), dir);
+        const hit = this.touchRaycaster.intersectObjects(this.touchSurfaces, false)[0];
+        marker.visible = !!hit;
+        if (hit) {
+          marker.position.copy(group.worldToLocal(hit.point)).addScaledVector(hit.face.normal, 0.012);
+          marker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), hit.face.normal);
+        }
+      });
+    }
+
+    animate(time) {
+      requestAnimationFrame(t => this.animate(t));
+      if (!this.ready) return;
+      const dt = Math.min((time - (this.prevTime || time)) / 1000, 0.05);
+      this.prevTime = time;
+      const blend = 1 - Math.exp(-20 * dt);
+
+      if (this.gyroPoseEnabled) {
+        this.model.quaternion.slerp(this.state.imuQuat, 1 - Math.exp(-25 * dt));
+      } else {
+        const targetQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(this.pose.x, this.pose.y, this.pose.z));
+        this.model.quaternion.slerp(targetQ, 1 - Math.exp(-10 * dt));
+      }
+
+      const hiColor = new THREE.Color('#3b82f6');
+      for (const [id, group] of this.controls) {
+        const rest = group.userData.rest;
+        if (!rest) continue;
+        let activeAmount = 0;
+
+        if (id === 'left-stick' || id === 'right-stick') {
+          const isLeft = id === 'left-stick';
+          const ax = isLeft ? this.state.lx : this.state.rx;
+          const ay = isLeft ? this.state.ly : this.state.ry;
+          const click = this.state.buttons[isLeft ? 'l3' : 'r3'] ? 1 : 0;
+          group.rotation.x += (ay * 0.30 - group.rotation.x) * blend;
+          group.rotation.y += (ax * 0.30 - group.rotation.y) * blend;
+          group.position.z += (rest.z - click * 0.038 - group.position.z) * blend;
+          activeAmount = Math.min(1, Math.hypot(ax, ay) * 0.9 + click);
+        } else if (id === 'l2' || id === 'r2') {
+          const val = id === 'l2' ? this.state.l2 : this.state.r2;
+          group.rotation.x += (-val * 0.22 - group.rotation.x) * blend;
+          activeAmount = val;
+        } else {
+          const pressed = this.state.buttons[id] ? 1 : 0;
+          const travel = id === 'touchpad' ? 0.018 : ['l1', 'r1'].includes(id) ? 0.026 : 0.034;
+          group.position.z += (rest.z - pressed * travel - group.position.z) * blend;
+          activeAmount = pressed;
+          if (id === 'touchpad' && this.state.touches.some(t => t.active)) activeAmount = 0.75;
+        }
+
+        for (const child of group.children) {
+          const mat = child.material;
+          if (!mat || !mat.color || !mat.userData?.restColor) continue;
+          mat.color.copy(mat.userData.restColor).lerp(hiColor, activeAmount * 0.65);
+          if (mat.emissive && mat.userData?.restEmissive) {
+            mat.emissive.copy(mat.userData.restEmissive).lerp(hiColor, activeAmount * 0.45);
+          }
+        }
+      }
+
+      this.renderTouches();
+      this.renderer.render(this.scene, this.camera);
+    }
+  }
+
+  const stage = new DualSense3DStage(document.getElementById('controller-canvas'));
+  stage.loadModel('./dualsense.glb', pct => {
+    document.getElementById('loader-text').textContent = `Loading 3D DualSense Model (${pct}%)...`;
+  }).then(() => {
+    document.getElementById('loader-overlay').hidden = true;
+  }).catch(err => {
+    document.getElementById('loader-text').textContent = 'Failed to load 3D model: ' + err.message;
+  });
+
+  document.querySelectorAll('[data-cam]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-cam]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      stage.gyroPoseEnabled = false;
+      document.getElementById('btn-gyro-pose').textContent = '3D Gyro: OFF';
+      document.getElementById('btn-gyro-pose').classList.remove('active');
+      stage.setView(btn.dataset.cam);
+    });
+  });
+  document.getElementById('btn-gyro-pose').addEventListener('click', e => {
+    stage.gyroPoseEnabled = !stage.gyroPoseEnabled;
+    e.currentTarget.textContent = `3D Gyro: ${stage.gyroPoseEnabled ? 'ON' : 'OFF'}`;
+    e.currentTarget.classList.toggle('active', stage.gyroPoseEnabled);
+  });
+  document.querySelectorAll('[data-shell]').forEach(btn => {
+    btn.addEventListener('click', () => stage.setShellFinish(btn.dataset.shell));
+  });
+
+  // =========================================================================
+  // 2. 256-BUCKET POTENTIOMETER TRACK SCANNER, OSCILLOSCOPE & SCOPES
+  // =========================================================================
+  const trackCtx = document.getElementById('track-canvas').getContext('2d');
+  const oscCtx = document.getElementById('osc-canvas').getContext('2d');
+  const lScopeCtx = document.getElementById('l-scope').getContext('2d');
+  const rScopeCtx = document.getElementById('r-scope').getContext('2d');
+  const touchCtx = document.getElementById('touch-canvas').getContext('2d');
+
+  // Track Scanner State for RX (0..255):
+  // hits[v]: number of times ADC value v was directly read
+  // skipped[v]: number of times ADC jumped across value v with step > 12
+  const rxTrack = {
+    hits: new Uint32Array(256),
+    skipped: new Uint32Array(256),
+    lastExtreme: null, // 'left' (<40) or 'right' (>215)
+    returnFromLeft: null,
+    returnFromRight: null,
+    stableCount: 0,
+    lastSkipStr: 'None'
+  };
+
+  const stickMetrics = {
+    l: { trail: [], boundary: new Float32Array(36), maxStep: 0, prevX: null, prevY: null },
+    r: { trail: [], boundary: new Float32Array(36), maxStep: 0, prevX: null, prevY: null },
+    glitches: 0,
+    history: []
+  };
+
+  function clearTrackScanner() {
+    rxTrack.hits.fill(0);
+    rxTrack.skipped.fill(0);
+    rxTrack.lastExtreme = null;
+    rxTrack.returnFromLeft = null;
+    rxTrack.returnFromRight = null;
+    rxTrack.lastSkipStr = 'None';
+    document.getElementById('hyst-left').textContent = '--';
+    document.getElementById('hyst-right').textContent = '--';
+    document.getElementById('last-skip-text').textContent = 'None';
+    document.getElementById('skip-zone-badge').textContent = 'Sweep RX slowly to scan';
+    document.getElementById('skip-zone-badge').className = 'badge warn';
+  }
+
+  function resetStats() {
+    stickMetrics.l.trail = [];
+    stickMetrics.r.trail = [];
+    stickMetrics.l.boundary.fill(0);
+    stickMetrics.r.boundary.fill(0);
+    stickMetrics.l.maxStep = 0;
+    stickMetrics.r.maxStep = 0;
+    stickMetrics.glitches = 0;
+    stickMetrics.history = [];
+    document.getElementById('max-rx-step-label').textContent = '0';
+    document.getElementById('l-circ').textContent = '--';
+    document.getElementById('r-circ').textContent = '--';
+    const gb = document.getElementById('glitch-badge');
+    gb.textContent = '0 Spikes';
+    gb.className = 'badge ok';
+    const hg = document.getElementById('hud-glitches');
+    hg.textContent = '0 Spikes';
+    hg.style.color = 'var(--emerald)';
+  }
+
+  document.getElementById('btn-reset-track').addEventListener('click', clearTrackScanner);
+  document.getElementById('btn-clear-trails').addEventListener('click', resetStats);
+  document.getElementById('btn-reset-scope').addEventListener('click', resetStats);
+
+  function drawTrackScanner(currentRx) {
+    const W = 760, H = 140;
+    trackCtx.clearRect(0, 0, W, H);
+
+    const barW = W / 256;
+    // Draw 256 buckets
+    for (let v = 0; v < 256; v++) {
+      const x = v * barW;
+      const hit = rxTrack.hits[v];
+      const skip = rxTrack.skipped[v];
+
+      if (skip > 0 && hit === 0) {
+        // Pure skipped dead zone!
+        trackCtx.fillStyle = 'rgba(244, 63, 94, 0.85)';
+        trackCtx.fillRect(x, 18, Math.max(1.5, barW), H - 42);
+      } else if (skip > 0 && hit > 0) {
+        // Intermittent skip zone
+        trackCtx.fillStyle = 'rgba(245, 158, 11, 0.8)';
+        trackCtx.fillRect(x, 28, Math.max(1.5, barW), H - 52);
+      } else if (hit > 0) {
+        // Healthy read value
+        trackCtx.fillStyle = 'rgba(16, 185, 129, 0.72)';
+        trackCtx.fillRect(x, 36, Math.max(1.5, barW), H - 60);
+      } else {
+        // Unvisited
+        trackCtx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+        trackCtx.fillRect(x, 55, Math.max(1, barW - 0.5), H - 79);
+      }
+    }
+
+    // Center 128 marker line
+    const cx = 128 * barW;
+    trackCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    trackCtx.setLineDash([3, 3]);
+    trackCtx.beginPath();
+    trackCtx.moveTo(cx, 10);
+    trackCtx.lineTo(cx, H - 20);
+    trackCtx.stroke();
+    trackCtx.setLineDash([]);
+
+    // Current RX live needle
+    const rxX = currentRx * barW;
+    trackCtx.fillStyle = '#ffffff';
+    trackCtx.beginPath();
+    trackCtx.arc(rxX, 12, 5, 0, Math.PI * 2);
+    trackCtx.fill();
+    trackCtx.strokeStyle = '#38bdf8';
+    trackCtx.lineWidth = 2;
+    trackCtx.beginPath();
+    trackCtx.moveTo(rxX, 16);
+    trackCtx.lineTo(rxX, H - 22);
+    trackCtx.stroke();
+
+    // Scale labels
+    trackCtx.fillStyle = '#94a3b8';
+    trackCtx.font = '11px SF Mono, monospace';
+    trackCtx.fillText('0 (Full Left)', 6, H - 6);
+    trackCtx.fillText('64', (64 * barW) - 8, H - 6);
+    trackCtx.fillText('128 (Center)', cx - 38, H - 6);
+    trackCtx.fillText('192', (192 * barW) - 10, H - 6);
+    trackCtx.fillText('255 (Right)', W - 78, H - 6);
+  }
+
+  function calcCircularityError(boundary) {
+    let filled = 0, sumSq = 0;
+    for (let i = 0; i < boundary.length; i++) {
+      if (boundary[i] > 0.7) {
+        filled++;
+        sumSq += Math.pow(boundary[i] - 1.0, 2);
+      }
+    }
+    if (filled < 18) return null;
+    return Math.sqrt(sumSq / filled) * 100;
+  }
+
+  function drawStickScope(ctx, rawX, rawY, m, color) {
+    const W = 320, H = 320, C = 160, R = 136;
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(C, C, R, 0, Math.PI * 2); ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.arc(C, C, R * 0.08, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.beginPath();
+    ctx.moveTo(C, 0); ctx.lineTo(C, H);
+    ctx.moveTo(0, C); ctx.lineTo(W, C);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.09)';
+    ctx.strokeStyle = 'rgba(59, 130, 246, 0.35)';
+    ctx.beginPath();
+    for (let i = 0; i < 36; i++) {
+      const ang = (i / 36) * Math.PI * 2 - Math.PI;
+      const rad = Math.min(1.12, m.boundary[i]) * R;
+      const px = C + Math.cos(ang) * rad;
+      const py = C + Math.sin(ang) * rad;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    if (m.trail.length > 1) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < m.trail.length; i++) {
+        const [tx, ty] = m.trail[i];
+        const px = C + ((tx - 128) / 128) * R;
+        const py = C + ((ty - 128) / 128) * R;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+
+    const cx = C + ((rawX - 128) / 128) * R;
+    const cy = C + ((rawY - 128) / 128) * R;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(cx, cy, 5.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(cx, cy, 8.5, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  function drawOscilloscope() {
+    const W = 760, H = 220;
+    oscCtx.clearRect(0, 0, W, H);
+
+    oscCtx.strokeStyle = 'rgba(255,255,255,0.12)';
+    oscCtx.lineWidth = 1;
+    oscCtx.beginPath();
+    oscCtx.moveTo(0, H / 2);
+    oscCtx.lineTo(W, H / 2);
+    oscCtx.stroke();
+
+    const hist = stickMetrics.history;
+    if (hist.length < 2) return;
+
+    const channels = [
+      { key: 'lx', color: '#38bdf8' },
+      { key: 'ly', color: '#818cf8' },
+      { key: 'ry', color: '#10b981' },
+      { key: 'rx', color: '#f43f5e' }
+    ];
+
+    for (const ch of channels) {
+      oscCtx.strokeStyle = ch.color;
+      oscCtx.lineWidth = ch.key === 'rx' ? 2.4 : 1.4;
+      oscCtx.beginPath();
+      for (let i = 0; i < hist.length; i++) {
+        const x = (i / 350) * W;
+        const y = H - (hist[i][ch.key] / 255) * (H - 16) - 8;
+        if (i === 0) oscCtx.moveTo(x, y); else oscCtx.lineTo(x, y);
+      }
+      oscCtx.stroke();
+    }
+
+    for (let i = 0; i < hist.length; i++) {
+      if (hist[i].spike) {
+        const x = (i / 350) * W;
+        oscCtx.strokeStyle = 'rgba(244, 63, 94, 0.75)';
+        oscCtx.lineWidth = 2;
+        oscCtx.beginPath();
+        oscCtx.moveTo(x, 0);
+        oscCtx.lineTo(x, H);
+        oscCtx.stroke();
+      }
+    }
+  }
+
+  function drawTouchpad(touches) {
+    const W = 640, H = 260;
+    touchCtx.clearRect(0, 0, W, H);
+    touchCtx.strokeStyle = 'rgba(255,255,255,0.06)';
+    touchCtx.beginPath();
+    touchCtx.moveTo(W / 2, 0); touchCtx.lineTo(W / 2, H);
+    touchCtx.moveTo(0, H / 2); touchCtx.lineTo(W, H / 2);
+    touchCtx.stroke();
+
+    const activeList = [];
+    touches.forEach((t, idx) => {
+      if (!t.active) return;
+      activeList.push(`P${idx + 1}:(${t.rawX},${t.rawY})`);
+      const x = t.x * W;
+      const y = t.y * H;
+      touchCtx.fillStyle = idx === 0 ? '#38bdf8' : '#f43f5e';
+      touchCtx.beginPath();
+      touchCtx.arc(x, y, 10, 0, Math.PI * 2);
+      touchCtx.fill();
+    });
+    document.getElementById('touch-coords').textContent = activeList.length ? activeList.join(' ') : 'Inactive';
+  }
+
+  // =========================================================================
+  // 3. TELEMETRY PIPELINE & SKIP / HYSTERESIS DETECTOR
+  // =========================================================================
+  const testedButtons = new Set();
+  let packetCount = 0;
+  let lastRateTime = performance.now();
+
+  setInterval(() => {
+    const now = performance.now();
+    const dt = (now - lastRateTime) / 1000;
+    document.getElementById('poll-rate').textContent = `${Math.round(packetCount / dt)} Hz`;
+    packetCount = 0;
+    lastRateTime = now;
+  }, 1000);
+
+  function updateTelemetry(lx, ly, rx, ry, l2, r2, buttons, touches) {
+    packetCount++;
+
+    const nlx = (lx - 128) / 128;
+    const nly = (ly - 128) / 128;
+    const nrx = (rx - 128) / 128;
+    const nry = (ry - 128) / 128;
+
+    stage.state.lx = nlx;
+    stage.state.ly = nly;
+    stage.state.rx = nrx;
+    stage.state.ry = nry;
+    stage.state.l2 = l2 / 255;
+    stage.state.r2 = r2 / 255;
+    stage.state.buttons = buttons;
+    stage.state.touches = touches;
+
+    // Record direct hit on RX track
+    rxTrack.hits[rx]++;
+
+    // Hysteresis tracking (where does RX settle after pushing Left vs Right?)
+    if (rx < 45) rxTrack.lastExtreme = 'left';
+    else if (rx > 210) rxTrack.lastExtreme = 'right';
+
+    let isSpike = false;
+    if (stickMetrics.r.prevX !== null) {
+      const prevRx = stickMetrics.r.prevX;
+      const diffRx = Math.abs(rx - prevRx);
+      const stepL = Math.max(Math.abs(lx - stickMetrics.l.prevX), Math.abs(ly - stickMetrics.l.prevY));
+      const stepR = Math.max(diffRx, Math.abs(ry - stickMetrics.r.prevY));
+
+      if (stepL > stickMetrics.l.maxStep) stickMetrics.l.maxStep = stepL;
+      if (diffRx > stickMetrics.r.maxStep) {
+        stickMetrics.r.maxStep = diffRx;
+        document.getElementById('max-rx-step-label').textContent = diffRx;
+      }
+
+      // Detect skip across RX values (e.g. jumping > 16 counts in a single 4ms sample near center)
+      if (diffRx >= 16) {
+        const lo = Math.min(prevRx, rx) + 1;
+        const hi = Math.max(prevRx, rx) - 1;
+        for (let v = lo; v <= hi; v++) rxTrack.skipped[v]++;
+        rxTrack.lastSkipStr = `${prevRx} → ${rx} (${rx - prevRx >= 0 ? '+' : ''}${rx - prevRx})`;
+      }
+
+      if (diffRx > 22) {
+        stickMetrics.glitches++;
+        isSpike = true;
+      }
+
+      // Check if stick is resting near center after an extreme deflection
+      if (diffRx === 0 && rx > 95 && rx < 160) {
+        rxTrack.stableCount++;
+        if (rxTrack.stableCount === 30) {
+          if (rxTrack.lastExtreme === 'left') {
+            rxTrack.returnFromLeft = rx;
+            document.getElementById('hyst-left').textContent = `${rx} (${rx - 128 >= 0 ? '+' : ''}${rx - 128})`;
+          } else if (rxTrack.lastExtreme === 'right') {
+            rxTrack.returnFromRight = rx;
+            document.getElementById('hyst-right').textContent = `${rx} (${rx - 128 >= 0 ? '+' : ''}${rx - 128})`;
+          }
+          rxTrack.lastExtreme = null;
+        }
+      } else {
+        rxTrack.stableCount = 0;
+      }
+    }
+
+    stickMetrics.l.prevX = lx; stickMetrics.l.prevY = ly;
+    stickMetrics.r.prevX = rx; stickMetrics.r.prevY = ry;
+
+    stickMetrics.l.trail.push([lx, ly]);
+    if (stickMetrics.l.trail.length > 220) stickMetrics.l.trail.shift();
+    stickMetrics.r.trail.push([rx, ry]);
+    if (stickMetrics.r.trail.length > 220) stickMetrics.r.trail.shift();
+
+    const magL = Math.hypot(nlx, nly);
+    if (magL > 0.3) {
+      const binL = Math.floor(((Math.atan2(nly, nlx) + Math.PI) / (Math.PI * 2)) * 36) % 36;
+      if (magL > stickMetrics.l.boundary[binL]) stickMetrics.l.boundary[binL] = magL;
+    }
+    const magR = Math.hypot(nrx, nry);
+    if (magR > 0.3) {
+      const binR = Math.floor(((Math.atan2(nry, nrx) + Math.PI) / (Math.PI * 2)) * 36) % 36;
+      if (magR > stickMetrics.r.boundary[binR]) stickMetrics.r.boundary[binR] = magR;
+    }
+
+    stickMetrics.history.push({ lx, ly, rx, ry, spike: isSpike });
+    if (stickMetrics.history.length > 350) stickMetrics.history.shift();
+
+    if (!updateTelemetry.rafPending) {
+      updateTelemetry.rafPending = true;
+      requestAnimationFrame(() => {
+        updateTelemetry.rafPending = false;
+
+        // Update Persistent Stage Bottom HUD
+        document.getElementById('hud-left').textContent = `${lx}, ${ly}`;
+        document.getElementById('hud-right').textContent = `${rx}, ${ry}`;
+        const l2Pct = Math.round((l2 / 255) * 100);
+        const r2Pct = Math.round((r2 / 255) * 100);
+        document.getElementById('hud-triggers').textContent = `${l2Pct}% / ${r2Pct}%`;
+        const hg = document.getElementById('hud-glitches');
+        hg.textContent = `${stickMetrics.glitches} Spikes`;
+        hg.style.color = stickMetrics.glitches === 0 ? 'var(--emerald)' : 'var(--rose)';
+
+        // Update Glitch Badge & Skip Text
+        const gb = document.getElementById('glitch-badge');
+        gb.textContent = `${stickMetrics.glitches} Spikes`;
+        gb.className = 'badge ' + (stickMetrics.glitches === 0 ? 'ok' : 'err');
+        document.getElementById('last-skip-text').textContent = rxTrack.lastSkipStr;
+
+        let skippedBuckets = 0;
+        for (let i = 0; i < 256; i++) if (rxTrack.skipped[i] > 0 && rxTrack.hits[i] === 0) skippedBuckets++;
+        const sb = document.getElementById('skip-zone-badge');
+        if (skippedBuckets > 0) {
+          sb.textContent = `${skippedBuckets} Dead/Skipped Buckets Detected`;
+          sb.className = 'badge err';
+        }
+
+        // Update Tab 2 Stick Scopes
+        document.getElementById('l-raw-pair').textContent = `${lx}, ${ly}`;
+        document.getElementById('r-raw-pair').textContent = `${rx}, ${ry}`;
+        document.getElementById('l-norm-pair').textContent = `${nlx.toFixed(2)}, ${nly.toFixed(2)}`;
+        document.getElementById('r-norm-pair').textContent = `${nrx.toFixed(2)}, ${nry.toFixed(2)}`;
+
+        const errL = (Math.hypot(lx - 128, ly - 128) / 128) * 100;
+        const errR = (Math.hypot(rx - 128, ry - 128) / 128) * 100;
+        const lb = document.getElementById('l-drift-badge');
+        const rb = document.getElementById('r-drift-badge');
+        lb.textContent = `${errL.toFixed(1)}% Offset`;
+        lb.className = 'badge ' + (errL < 5 ? 'ok' : errL < 10 ? 'warn' : 'err');
+        rb.textContent = `${errR.toFixed(1)}% Offset`;
+        rb.className = 'badge ' + (errR < 5 ? 'ok' : errR < 10 ? 'warn' : 'err');
+
+        const circL = calcCircularityError(stickMetrics.l.boundary);
+        const circR = calcCircularityError(stickMetrics.r.boundary);
+        if (circL !== null) document.getElementById('l-circ').textContent = `${circL.toFixed(1)}%`;
+        if (circR !== null) document.getElementById('r-circ').textContent = `${circR.toFixed(1)}%`;
+
+        // Update Tab 4 Triggers & Buttons
+        document.getElementById('l2-val').textContent = `${l2} / 255 (${l2Pct}%)`;
+        document.getElementById('r2-val').textContent = `${r2} / 255 (${r2Pct}%)`;
+        document.getElementById('l2-bar').style.width = `${l2Pct}%`;
+        document.getElementById('r2-bar').style.width = `${r2Pct}%`;
+
+        document.querySelectorAll('.b-chip').forEach(chip => {
+          const id = chip.dataset.btn;
+          const isPressed = !!buttons[id];
+          chip.classList.toggle('pressed', isPressed);
+          if (isPressed && !testedButtons.has(id)) {
+            testedButtons.add(id);
+            chip.classList.add('tested');
+            document.getElementById('btn-coverage').textContent = `${testedButtons.size} / 19 Tested`;
+          }
+        });
+
+        drawTrackScanner(rx);
+        drawOscilloscope();
+        drawStickScope(lScopeCtx, lx, ly, stickMetrics.l, '#38bdf8');
+        drawStickScope(rScopeCtx, rx, ry, stickMetrics.r, '#f43f5e');
+        drawTouchpad(touches);
+      });
+    }
+  }
+
+  document.getElementById('btn-reset-buttons').addEventListener('click', () => {
+    testedButtons.clear();
+    document.querySelectorAll('.b-chip').forEach(c => c.classList.remove('tested'));
+    document.getElementById('btn-coverage').textContent = `0 / 19 Tested`;
+  });
+
+  document.getElementById('btn-15s-test').addEventListener('click', async () => {
+    const banner = document.getElementById('guided-banner');
+    banner.style.display = 'block';
+    for (let i = 3; i >= 1; i--) {
+      banner.textContent = `Starting 15s Stick & Glitch Test in ${i}...`;
+      await sleep(1000);
+    }
+    resetStats();
+    clearTrackScanner();
+    const phases = [
+      [5, 'Phase 1/3: Slowly move RIGHT STICK all the way Left (0) and Right (255) to scan track!'],
+      [5, 'Phase 2/3: Rotate BOTH sticks in full circles!'],
+      [5, 'Phase 3/3: HANDS OFF! Release sticks to measure resting center...']
+    ];
+    for (const [sec, text] of phases) {
+      for (let s = sec; s >= 1; s--) {
+        banner.textContent = `${text} (${s}s)`;
+        await sleep(1000);
+      }
+    }
+    banner.textContent = `15s Scan Complete! Max RX Step: ${stickMetrics.r.maxStep} | Spikes: ${stickMetrics.glitches} | Last Skip: ${rxTrack.lastSkipStr}`;
+  });
+
+  // =========================================================================
+  // 4. WEBHID CONNECTION, NVS CALIBRATION & OUTPUT REPORTS
+  // =========================================================================
+  let hidDevice = null;
+
+  function allocFeatureReq(id, payload = []) {
+    let maxLen = 63;
+    try {
+      const fr = hidDevice?.collections?.[0]?.featureReports;
+      const report = fr?.find(e => e.reportId === id)?.items?.[0];
+      if (report?.reportCount) maxLen = report.reportCount;
+    } catch {}
+    const out = new Uint8Array(maxLen);
+    out.set(payload.slice(0, maxLen));
+    return out;
+  }
+
+  async function sendFeature(reportId, payload) {
+    if (!hidDevice?.opened) throw new Error('DualSense WebHID not connected');
+    await hidDevice.sendFeatureReport(reportId, allocFeatureReq(reportId, payload));
+  }
+
+  async function recvFeature(reportId) {
+    if (!hidDevice?.opened) throw new Error('DualSense WebHID not connected');
+    return await hidDevice.receiveFeatureReport(reportId);
+  }
+
+  async function queryNvsStatus() {
+    await sendFeature(0x80, [3, 3]);
+    await sleep(40);
+    const dv = await recvFeature(0x81);
+    const ret = dv.getUint32(1, false);
+    const pill = document.getElementById('nvs-pill-text');
+    if (ret === 0x03030201) {
+      pill.textContent = 'LOCKED';
+      pill.style.color = '#93c5fd';
+      return { locked: true, raw: ret };
+    } else if (ret === 0x03030200) {
+      pill.textContent = 'UNLOCKED';
+      pill.style.color = '#fcd34d';
+      return { locked: false, raw: ret };
+    } else {
+      pill.textContent = hex8(ret);
+      return { locked: null, raw: ret };
+    }
+  }
+
+  async function unlockNvs() {
+    await sendFeature(0x80, [3, 2, 101, 50, 64, 12]);
+    await sleep(60);
+    await recvFeature(0x81);
+    const st = await queryNvsStatus();
+    log(`NVS Unlocked (${hex8(st.raw)})`, 'warn');
+  }
+
+  async function lockNvs() {
+    await sendFeature(0x80, [3, 1]);
+    await sleep(60);
+    await recvFeature(0x81);
+    const st = await queryNvsStatus();
+    log(`NVS Locked (${hex8(st.raw)})`, 'ok');
+  }
+
+  async function readFinetuneRegisters() {
+    await sendFeature(0x80, [12, 2]);
+    await sleep(80);
+    const dv = await recvFeature(0x81);
+    const words = [];
+    for (let i = 0; i < 12; i++) words.push(dv.getUint16(4 + i * 2, true));
+    const labels = ['LX Min', 'LY Min', 'RX Min', 'RY Min', 'LX Max', 'LY Max', 'RX Max', 'RY Max', 'LX Cen', 'LY Cen', 'RX Cen', 'RY Cen'];
+    document.getElementById('finetune-grid').innerHTML = words.map((w, i) => `<div class="ft-cell"><small>${labels[i]}</small><strong>${w}</strong></div>`).join('');
+    log(`Finetune NVS: [${words.join(', ')}]`);
+    return words;
+  }
+
+  async function readHardwareProfile() {
+    try {
+      const dv09 = await recvFeature(0x09);
+      const mac = [6, 5, 4, 3, 2, 1].map(i => hex2(dv09.getUint8(i))).join(':').toUpperCase();
+      const hostMac = [15, 14, 13, 12, 11, 10].map(i => hex2(dv09.getUint8(i))).join(':').toUpperCase();
+      document.getElementById('hw-mac').textContent = mac;
+      document.getElementById('hw-host-mac').textContent = hostMac;
+
+      const dv20 = await recvFeature(0x20);
+      const dec = new TextDecoder();
+      const buildDate = dec.decode(new Uint8Array(dv20.buffer, dv20.byteOffset + 1, 11)).trim();
+      const buildTime = dec.decode(new Uint8Array(dv20.buffer, dv20.byteOffset + 12, 8)).trim();
+      const hwInfo = dv20.getUint32(24, true);
+      const mainFw = dv20.getUint32(28, true);
+      const updVer = dv20.getUint16(44, true);
+      const rev = (hwInfo >> 8) & 0xff;
+      const boardMap = { 0x03: 'BDM-010', 0x04: 'BDM-020', 0x05: 'BDM-030/050', 0x06: 'BDM-040', 0x07: 'BDM-050', 0x08: 'BDM-050' };
+      document.getElementById('hw-board').textContent = `${boardMap[rev] || 'DualSense'} (0x${hwInfo.toString(16)})`;
+      document.getElementById('hw-date').textContent = `${buildDate} ${buildTime}`;
+      document.getElementById('hw-fw').textContent = `0x${mainFw.toString(16)} (Upd 0x${updVer.toString(16)})`;
+
+      await queryNvsStatus();
+      await readFinetuneRegisters();
+    } catch (err) {
+      log('Register read error: ' + err.message, 'err');
+    }
+  }
+
+  function handleHidInputReport(event) {
+    const { data, reportId } = event;
+    if (reportId !== 0x01) return;
+
+    const lx = data.getUint8(0);
+    const ly = data.getUint8(1);
+    const rx = data.getUint8(2);
+    const ry = data.getUint8(3);
+    const l2 = data.getUint8(4);
+    const r2 = data.getUint8(5);
+
+    const b0 = data.getUint8(7);
+    const b1 = data.getUint8(8);
+    const b2 = data.getUint8(9);
+    const dpad = b0 & 0x0f;
+
+    const buttons = {
+      up: dpad === 0 || dpad === 1 || dpad === 7,
+      right: dpad === 1 || dpad === 2 || dpad === 3,
+      down: dpad === 3 || dpad === 4 || dpad === 5,
+      left: dpad === 5 || dpad === 6 || dpad === 7,
+      square: !!(b0 & 0x10),
+      cross: !!(b0 & 0x20),
+      circle: !!(b0 & 0x40),
+      triangle: !!(b0 & 0x80),
+      l1: !!(b1 & 0x01),
+      r1: !!(b1 & 0x02),
+      l2: !!(b1 & 0x04),
+      r2: !!(b1 & 0x08),
+      create: !!(b1 & 0x10),
+      options: !!(b1 & 0x20),
+      l3: !!(b1 & 0x40),
+      r3: !!(b1 & 0x80),
+      ps: !!(b2 & 0x01),
+      touchpad: !!(b2 & 0x02),
+      mute: !!(b2 & 0x04)
+    };
+
+    const gx = data.getInt16(15, true), gy = data.getInt16(17, true), gz = data.getInt16(19, true);
+    const ax = data.getInt16(21, true), ay = data.getInt16(23, true), az = data.getInt16(25, true);
+    if (packetCount % 15 === 0) {
+      document.getElementById('hw-imu').textContent = `G:(${gx},${gy},${gz}) A:(${ax},${ay},${az})`;
+    }
+    if (stage.gyroPoseEnabled) {
+      const roll = Math.atan2(-ax, Math.hypot(ay, az));
+      const pitch = Math.atan2(az, ay);
+      stage.state.imuQuat.setFromEuler(new THREE.Euler(pitch * 0.85, 0, roll * 0.85));
+    }
+
+    const touches = [];
+    for (let i = 0; i < 2; i++) {
+      const base = 32 + i * 4;
+      const bContact = data.getUint8(base);
+      const bXLo = data.getUint8(base + 1);
+      const bXY = data.getUint8(base + 2);
+      const bYHi = data.getUint8(base + 3);
+      const active = !(bContact & 0x80);
+      const rawX = ((bXY & 0x0f) << 8) | bXLo;
+      const rawY = (bYHi << 4) | ((bXY & 0xf0) >> 4);
+      touches.push({ active, rawX, rawY, x: rawX / 1920, y: rawY / 1080 });
+    }
+
+    const batByte = data.getUint8(52);
+    const batLevel = Math.min(100, ((batByte & 0x0f) * 10) + 5);
+    const batState = (batByte >> 4) & 0x0f;
+    const stateStr = batState === 1 ? 'Charging ⚡' : batState === 2 ? 'Full ✓' : 'Discharging';
+    document.getElementById('bat-text').textContent = `${batLevel}% (${stateStr})`;
+
+    updateTelemetry(lx, ly, rx, ry, l2, r2, buttons, touches);
+  }
+
+  async function openDualSense(dev) {
+    hidDevice = dev;
+    if (!hidDevice.opened) await hidDevice.open();
+    hidDevice.oninputreport = handleHidInputReport;
+
+    document.getElementById('conn-dot').className = 'dot live';
+    document.getElementById('conn-label').textContent = `${hidDevice.productName} (WebHID)`;
+    document.getElementById('btn-connect').textContent = 'Connected ✓';
+
+    [
+      'btn-refresh-hw', 'btn-nvs-query', 'btn-nvs-unlock', 'btn-nvs-lock',
+      'btn-cal-center', 'btn-range-start', 'btn-read-finetune',
+      'btn-stop-outputs', 'btn-rumble-pulse'
+    ].forEach(id => document.getElementById(id).disabled = false);
+    document.querySelectorAll('.trig-preset, [data-led]').forEach(b => b.disabled = false);
+
+    log(`Connected to ${hidDevice.productName} via WebHID!`, 'ok');
+    await readHardwareProfile();
+  }
+
+  document.getElementById('btn-connect').addEventListener('click', async () => {
+    if (!navigator.hid) return log('WebHID requires Chrome/Edge/Brave.', 'err');
+    const devs = await navigator.hid.requestDevice({
+      filters: [{ vendorId: 0x054c, productId: 0x0ce6 }, { vendorId: 0x054c, productId: 0x0df2 }]
+    });
+    if (devs.length) await openDualSense(devs[0]);
+  });
+
+  if (navigator.hid) {
+    navigator.hid.getDevices().then(devs => {
+      const ds = devs.find(d => d.vendorId === 0x054c && (d.productId === 0x0ce6 || d.productId === 0x0df2));
+      if (ds) openDualSense(ds);
+    });
+  }
+
+  // Fallback Gamepad API polling when WebHID isn't active yet
+  function pollGamepadFallback() {
+    if (!hidDevice) {
+      const gps = navigator.getGamepads ? navigator.getGamepads() : [];
+      const gp = Array.from(gps).find(g => g && g.connected);
+      if (gp) {
+        document.getElementById('conn-dot').className = 'dot warn';
+        document.getElementById('conn-label').textContent = 'Gamepad API (Click Connect WebHID)';
+        const lx = Math.round(((gp.axes[0] || 0) + 1) * 127.5);
+        const ly = Math.round(((gp.axes[1] || 0) + 1) * 127.5);
+        const rx = Math.round(((gp.axes[2] || 0) + 1) * 127.5);
+        const ry = Math.round(((gp.axes[3] || 0) + 1) * 127.5);
+        const l2 = Math.round((gp.buttons[6]?.value || 0) * 255);
+        const r2 = Math.round((gp.buttons[7]?.value || 0) * 255);
+        const buttons = {
+          cross: gp.buttons[0]?.pressed, circle: gp.buttons[1]?.pressed,
+          square: gp.buttons[2]?.pressed, triangle: gp.buttons[3]?.pressed,
+          l1: gp.buttons[4]?.pressed, r1: gp.buttons[5]?.pressed,
+          l2: gp.buttons[6]?.pressed, r2: gp.buttons[7]?.pressed,
+          create: gp.buttons[8]?.pressed, options: gp.buttons[9]?.pressed,
+          l3: gp.buttons[10]?.pressed, r3: gp.buttons[11]?.pressed,
+          up: gp.buttons[12]?.pressed, down: gp.buttons[13]?.pressed,
+          left: gp.buttons[14]?.pressed, right: gp.buttons[15]?.pressed,
+          ps: gp.buttons[16]?.pressed, touchpad: gp.buttons[17]?.pressed
+        };
+        updateTelemetry(lx, ly, rx, ry, l2, r2, buttons, []);
+      }
+    }
+    requestAnimationFrame(pollGamepadFallback);
+  }
+  requestAnimationFrame(pollGamepadFallback);
+
+  // Calibration Handlers
+  document.getElementById('chk-permanent').addEventListener('change', e => {
+    document.getElementById('cal-mode-badge').textContent = e.target.checked ? 'Permanent NVS Flash' : 'Temporary RAM';
+  });
+  document.getElementById('btn-refresh-hw').addEventListener('click', readHardwareProfile);
+  document.getElementById('btn-nvs-query').addEventListener('click', queryNvsStatus);
+  document.getElementById('btn-nvs-unlock').addEventListener('click', unlockNvs);
+  document.getElementById('btn-nvs-lock').addEventListener('click', lockNvs);
+  document.getElementById('btn-read-finetune').addEventListener('click', readFinetuneRegisters);
+
+  document.getElementById('btn-cal-center').addEventListener('click', async () => {
+    const perm = document.getElementById('chk-permanent').checked;
+    const btn = document.getElementById('btn-cal-center');
+    btn.disabled = true;
+    try {
+      log('Calibrating stick centers...', 'warn');
+      if (perm) await unlockNvs();
+      await sendFeature(0x82, [1, 1, 1]); await sleep(80);
+      let dv = await recvFeature(0x83);
+      if (dv.getUint32(0, false) !== 0x83010101) throw new Error('Begin failed');
+      await sendFeature(0x82, [3, 1, 1]); await sleep(150);
+      dv = await recvFeature(0x83);
+      if (dv.getUint32(0, false) !== 0x83010101) throw new Error('Sample failed');
+      await sendFeature(0x82, [2, 1, 1]); await sleep(150);
+      dv = await recvFeature(0x83);
+      if (dv.getUint32(0, false) !== 0x83010102) throw new Error('Commit failed');
+      log('Stick centers calibrated and committed (0x83010102)!', 'ok');
+      if (perm) await lockNvs();
+      await readFinetuneRegisters();
+      resetStats();
+      clearTrackScanner();
+    } catch (err) {
+      log('Calibration error: ' + err.message, 'err');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('btn-range-start').addEventListener('click', async () => {
+    const perm = document.getElementById('chk-permanent').checked;
+    try {
+      if (perm) await unlockNvs();
+      await sendFeature(0x82, [1, 1, 2]); await sleep(80);
+      const dv = await recvFeature(0x83);
+      if (dv.getUint32(0, false) !== 0x83010201) throw new Error('Range start failed');
+      document.getElementById('btn-range-start').disabled = true;
+      document.getElementById('btn-range-end').disabled = false;
+      log('Range sampling started! Rotate both sticks in full circles 3-4 times, release, then click Save & Finish Range.', 'warn');
+    } catch (err) {
+      log('Range error: ' + err.message, 'err');
+    }
+  });
+
+  document.getElementById('btn-range-end').addEventListener('click', async () => {
+    const perm = document.getElementById('chk-permanent').checked;
+    try {
+      await sendFeature(0x82, [2, 1, 2]); await sleep(150);
+      const dv = await recvFeature(0x83);
+      if (dv.getUint32(0, false) !== 0x83010202) throw new Error('Range commit failed');
+      log('Full outer range saved (0x83010202)!', 'ok');
+      if (perm) await lockNvs();
+      await readFinetuneRegisters();
+      resetStats();
+    } catch (err) {
+      log('Range save error: ' + err.message, 'err');
+    } finally {
+      document.getElementById('btn-range-start').disabled = false;
+      document.getElementById('btn-range-end').disabled = true;
+    }
+  });
+
+  // Output Reports (0x02)
+  function buildTriggerEffect(preset) {
+    const b = new Uint8Array(11);
+    const view = new DataView(b.buffer);
+    if (preset === 'off') b[0] = 0x05;
+    else if (preset === 'pistol') { b[0] = 0x25; view.setUint16(1, (1 << 3) | (1 << 5), true); b[3] = 5; }
+    else if (preset === 'shotgun') { b[0] = 0x25; view.setUint16(1, (1 << 3) | (1 << 6), true); b[3] = 7; }
+    else if (preset === 'smg') {
+      b[0] = 0x26;
+      let zones = 0, forces = 0;
+      for (let z = 3; z < 10; z++) { zones |= (1 << z); forces |= (5 << (z * 3)); }
+      view.setUint16(1, zones, true); view.setUint32(3, forces, true); b[9] = 14;
+    } else if (preset === 'resistance') {
+      b[0] = 0x21;
+      let zones = 0, forces = 0;
+      for (let z = 2; z < 10; z++) { zones |= (1 << z); forces |= (4 << (z * 3)); }
+      view.setUint16(1, zones, true); view.setUint32(3, forces, true);
+    }
+    return b;
+  }
+
+  async function sendDualSenseOutput({ preset = null, rumbleL = 0, rumbleR = 0, ledHex = null } = {}) {
+    if (!hidDevice?.opened) return;
+    const out = new Uint8Array(47);
+    if (rumbleL > 0 || rumbleR > 0) { out[0] |= 0x03; out[2] = rumbleR; out[3] = rumbleL; }
+    if (preset) { out[0] |= 0x0c; const eff = buildTriggerEffect(preset); out.set(eff, 10); out.set(eff, 21); }
+    if (ledHex) {
+      out[1] |= 0x04;
+      out[44] = parseInt(ledHex.slice(1, 3), 16);
+      out[45] = parseInt(ledHex.slice(3, 5), 16);
+      out[46] = parseInt(ledHex.slice(5, 7), 16);
+      stage.setLightbarColor(ledHex);
+    }
+    await hidDevice.sendReport(0x02, out);
+  }
+
+  document.querySelectorAll('.trig-preset').forEach(btn => {
+    btn.addEventListener('click', () => sendDualSenseOutput({ preset: btn.dataset.preset }));
+  });
+  document.getElementById('btn-rumble-pulse').addEventListener('click', async () => {
+    await sendDualSenseOutput({ rumbleL: 210, rumbleR: 210 });
+    await sleep(1000);
+    await sendDualSenseOutput({ rumbleL: 0, rumbleR: 0, preset: 'off' });
+  });
+  document.getElementById('light-picker').addEventListener('input', e => sendDualSenseOutput({ ledHex: e.target.value }));
+  document.querySelectorAll('[data-led]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('light-picker').value = btn.dataset.led;
+      sendDualSenseOutput({ ledHex: btn.dataset.led });
+    });
+  });
+  document.getElementById('btn-stop-outputs').addEventListener('click', () => {
+    sendDualSenseOutput({ preset: 'off', rumbleL: 0, rumbleR: 0 });
+  });
+
+  // Initial draw of empty canvases
+  drawTrackScanner(128);
+  drawStickScope(lScopeCtx, 128, 128, stickMetrics.l, '#38bdf8');
+  drawStickScope(rScopeCtx, 128, 128, stickMetrics.r, '#f43f5e');
+</script>
+</body>
+</html>
