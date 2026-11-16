@@ -1,0 +1,11 @@
+{
+  "id": "dualsense-diagnostic-workbench",
+  "title": "DualSense 3D Diagnostic & Calibration Workbench",
+  "oneLiner": "Zero-install 3D Three.js + WebHID diagnostic workbench, potentiometer carbon-track scanner, and NVS flash calibrator for PS5 DualSense controllers.",
+  "demoUrl": "https://kylemath.github.io/dualsense-diagnostic-workbench/",
+  "screenshot": "https://raw.githubusercontent.com/kylemath/dualsense-diagnostic-workbench/main/screenshot.png",
+  "kind": "project",
+  "categories": ["hardware", "diagnostics", "threejs", "webhid", "gaming"],
+  "tags": ["hardware", "diagnostics", "threejs", "webhid", "gaming"],
+  "status": "published"
+}

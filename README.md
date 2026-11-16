@@ -2,6 +2,10 @@
 
 A **zero-install, single-page WebHID + Three.js hardware diagnostic, potentiometer carbon-track scanner, and Sony NVS flash calibration workbench** for PlayStation 5 **DualSense** (`0x054c:0x0ce6`) and **DualSense Edge** (`0x054c:0x0df2`) controllers.
 
+<p align="center">
+  <img src="screenshot.png" alt="DualSense 3D Diagnostic & Calibration Workbench" width="720" />
+</p>
+
 ### 🌐 Live Zero-Install Web App
 👉 **[https://kylemath.github.io/dualsense-diagnostic-workbench/](https://kylemath.github.io/dualsense-diagnostic-workbench/)**  
 *(Open in desktop **Google Chrome**, **Microsoft Edge**, or **Brave** with your DualSense plugged in via a USB data cable.)*
